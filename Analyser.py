@@ -29,8 +29,8 @@ class Analyser:
 
     def run_mann_whitney(self):
         for val in self.df[self.pivot_column].unique():
+            df = self.df[self.df[self.pivot_column] == val]
             for feature in self.target_columns:
-                df = self.append_target_column(val)
                 # split groups
                 yes = df[df[self.predictor_column]][feature]
                 no = df[~df[self.predictor_column]][feature]
@@ -38,6 +38,26 @@ class Analyser:
                 # test
                 stat, p = mannwhitneyu(yes, no)
                 print(f"{val}, {feature}: p={p:.4f}, {self.predictor_column} median={yes.median():.3f}, ~{self.predictor_column} median={no.median():.3f}")
+
+    def get_mann_whitney_df(self, significance_threshold : float = 0.05) -> pd.DataFrame:
+        results = []
+
+        for val in self.df[self.pivot_column].unique():
+            df = self.df[self.df[self.pivot_column] == val]
+            for feature in self.target_columns:
+                yes = df[df[self.predictor_column]][feature]
+                no = df[~df[self.predictor_column]][feature]
+                stat, p = mannwhitneyu(yes, no)
+                results.append({
+                    'Pivot Value': val,
+                    'Feature': feature,
+                    'Median (True)': yes.median(),
+                    'Median (False)': no.median(),
+                    'P-Value': round(p, 4),
+                    'Significant': p < significance_threshold
+                })
+
+        return pd.DataFrame(results)
 
 
     def generate_strip_plot(self, pivot_value : str):
