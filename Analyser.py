@@ -1,6 +1,8 @@
 import pandas as pd
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import RobustScaler
 from scipy.stats import mannwhitneyu
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 class Analyser:
 
@@ -27,15 +29,18 @@ class Analyser:
         if len(pivot_column_included_values) > 0:
             self.df = self.df[self.df[pivot_column].isin(pivot_column_included_values)]
 
+    def append_target_column(self, pivot_value : str) -> pd.DataFrame:
+        df = self.df[self.df[self.pivot_column] == pivot_value].copy()
+        
+        # collapse target columns into single one called target
+        scaled = RobustScaler().fit_transform(df[self.target_columns])
+        df['Target'] = scaled.mean(axis=1)
+        return df
 
     def run_mann_whitney(self):
         for val in self.df[self.pivot_column].unique():
-            df = self.df[self.df[self.pivot_column] == val].copy()
             
-            # collapse target columns into single one called target
-            scaled = MinMaxScaler().fit_transform(df[self.target_columns])
-            df['Target'] = scaled.mean(axis=1)
-
+            df = self.append_target_column(val)
             # split groups
             yes = df[df[self.predictor_column]]['Target']
             no = df[~df[self.predictor_column]]['Target']
@@ -44,3 +49,22 @@ class Analyser:
             stat, p = mannwhitneyu(yes, no)
             print(f"{val}: p={p:.4f}, {self.predictor_column} median={yes.median():.3f}, ~{self.predictor_column} median={no.median():.3f}")
 
+
+    def generate_strip_plot(self, pivot_value : str):
+        df = self.append_target_column(pivot_value)
+        sns.violinplot(df, x='HasHashtag', y='Target')
+
+    def generate_all_metric_median_heatmap(self, pivot_value):
+        heatmap_data = self.df[self.df[self.pivot_column] == pivot_value].groupby('HasHashtag')[self.target_columns].median()
+        heatmap_normalised = heatmap_data.div(heatmap_data.max(axis=0))
+        heatmap_normalised = heatmap_data.div(heatmap_data.max(axis=0)).fillna(0)
+        sns.heatmap(
+            heatmap_normalised,
+            annot=heatmap_data,
+            fmt='.2f',
+            cmap='YlGn',
+            linewidths=0.5
+        )
+
+        plt.title('Median Engagement by Post Type (normalised)')
+        plt.tight_layout()
