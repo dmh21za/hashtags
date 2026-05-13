@@ -1,5 +1,5 @@
 import pandas as pd
-from sklearn.preprocessing import RobustScaler
+from sklearn.preprocessing import MinMaxScaler
 from scipy.stats import mannwhitneyu
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -18,28 +18,27 @@ class Analyser:
         self.pivot_column = pivot_column
         self.predictor_column = predictor_column
         self.target_columns = target_columns
-
-
         # Keep only relevant columns
         mask = [pivot_column, predictor_column]
         mask.extend(target_columns)
         self.df = self.df[mask]
+
         self.pivot_column_included_values = pivot_column_included_values
 
         if len(pivot_column_included_values) > 0:
             self.df = self.df[self.df[pivot_column].isin(pivot_column_included_values)]
 
+
     def append_target_column(self, pivot_value : str) -> pd.DataFrame:
         df = self.df[self.df[self.pivot_column] == pivot_value].copy()
         
         # collapse target columns into single one called target
-        scaled = RobustScaler().fit_transform(df[self.target_columns])
+        scaled = MinMaxScaler().fit_transform(df[self.target_columns])
         df['Target'] = scaled.mean(axis=1)
         return df
 
     def run_mann_whitney(self):
         for val in self.df[self.pivot_column].unique():
-            
             df = self.append_target_column(val)
             # split groups
             yes = df[df[self.predictor_column]]['Target']
