@@ -5,7 +5,16 @@ import matplotlib.pyplot as plt
 
 class Analyser:
 
-    def __init__(self, pivot_column : str, predictor_column : str, target_columns : list[str], csv_location : str = None, df : pd.DataFrame = None, pivot_column_included_values : list[str] = []):
+    def __init__(self, 
+                 pivot_column : str, 
+                 predictor_column : str, 
+                 target_columns : list[str], 
+                 csv_location : str = None, 
+                 df : pd.DataFrame = None, 
+                 pivot_column_included_values : list[str] = [],
+                 min_iqr : float = 0.0
+                 ):
+        
         if df is None and csv_location is None:
             raise('Must include dataframe or csv location')
         
@@ -27,6 +36,8 @@ class Analyser:
         if len(pivot_column_included_values) > 0:
             self.df = self.df[self.df[pivot_column].isin(pivot_column_included_values)]
 
+        self.min_iqr = min_iqr
+
     def run_mann_whitney(self):
         for val in self.df[self.pivot_column].unique():
             df = self.df[self.df[self.pivot_column] == val]
@@ -45,8 +56,15 @@ class Analyser:
         for val in self.df[self.pivot_column].unique():
             df = self.df[self.df[self.pivot_column] == val]
             for feature in self.target_columns:
+
                 yes = df[df[self.predictor_column]][feature]
                 no = df[~df[self.predictor_column]][feature]
+
+
+                # Skip if IQR is too small or both medians are zero
+                if df[feature].quantile(0.75) - df[feature].quantile(0.25) <= self.min_iqr or yes.median() - no.median() == 0:
+                    continue
+
                 stat, p = mannwhitneyu(yes, no)
                 results.append({
                     'Pivot Value': val,
